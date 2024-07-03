@@ -1,0 +1,82 @@
+version: "3"
+
+services:
+  cache:
+    hostname: cache
+    image: docker.dragonflydb.io/dragonflydb/dragonfly
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+    volumes:
+      - dragonflydata:/data
+  
+
+  elasticsearch:
+    container_name: elastic
+    image: elasticsearch
+    build:
+      context: ./elasticsearch
+      dockerfile: ./Dockerfile
+    ports:
+      - 9200:9200
+      - 9300:9300
+    environment:
+      - discovery.type=single-node
+    networks:
+      - elastic
+    volumes:
+      - ./elasticsearch/localdata/opt/elastic:/usr/share/elasticsearch/data
+
+
+  jobboard:
+    container_name: jobboard
+    build:
+      context: jobboard
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./jobboard:/app
+      
+    environment:
+      # set environment variables
+      - ADMIN_EMAIL=${ADMIN_EMAIL}
+      - ELASTIC_PORT=${ELASTIC_PORT:-9200}
+      - CACHE_PORT=${CACHE_PORT:-6379}
+      - CACHE_HOST=${CACHE_HOST:-cache}
+      - CACHE_SSL=${CACHE_SSL:-False}
+      - ELASTIC_SSL=${ELASTIC_SSL:-False}
+      - ELASTIC_HOST=${ELASTIC_HOST:-elasticsearch}
+    command: gunicorn -c ./server/gunicorn.conf.py manage:app
+    depends_on:
+      - elasticsearch
+  
+  worker:
+    container_name: worker
+    build:
+      context: jobboard
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./jobboard:/app
+    command: ["honcho", "start"]
+      
+    environment:
+      # set environment variables
+      - CACHE_URL=redis://cache:6379/0
+      - ADMIN_EMAIL=${ADMIN_EMAIL}
+      - ELASTIC_PORT=${ELASTIC_PORT:-9200}
+      - ELASTIC_HOST=${ELASTIC_HOST:-elasticsearch}
+      - CACHE_PORT=${CACHE_PORT:-6379}
+      - CACHE_HOST=${CACHE_HOST:-cache}
+      - CACHE_SSL=${CACHE_SSL:-False}
+      - ELASTIC_SSL=${ELASTIC_SSL:-False}
+    depends_on:
+      - elasticsearch
+      - cache
+
+
+
+networks:
+  elastic:
+    external:
+      name: general

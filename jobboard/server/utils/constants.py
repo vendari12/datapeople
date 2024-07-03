@@ -1,0 +1,3 @@
+SERVICE_PORT=8000
+
+USA_JOBS_INDEX="usa-jobs"
