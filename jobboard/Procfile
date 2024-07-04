@@ -1,5 +1,5 @@
 # THIS File is strictly for celery use case
 
-worker: celery -A server.celery worker --loglevel=info 
+worker: celery -A server.utils.celery worker --loglevel=info 
 
 beat: python manage.py run-celery-beat-worker

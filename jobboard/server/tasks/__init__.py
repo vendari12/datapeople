@@ -1,7 +1,6 @@
 from celery.schedules import crontab
 from server.utils.celery import celery
 
-
 # Ensure Celery auto-discovers tasks
 celery.autodiscover_tasks()
 

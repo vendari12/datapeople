@@ -1,14 +1,15 @@
 import asyncio
 from contextlib import asynccontextmanager
+
 from base import BaseFastAPI
-from typer import Typer
 from celery.apps.beat import Beat
+from server.routes.router import router
+from server.settings import settings
+from server.tasks.pull_usa_jobs_to_elastic import \
+    process_and_store_historical_jobs
 from server.utils.celery import celery
 from server.utils.elasticsearch import elastic_client
-from server.settings import settings
-from server.routes.router import router
-from server.tasks.pull_usa_jobs_to_elastic import process_and_store_historical_jobs
-
+from typer import Typer
 
 cli = Typer()
 

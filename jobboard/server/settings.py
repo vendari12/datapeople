@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     ELASTIC_PORT: int
     ELASTIC_HOST: str
     ELASTIC_PASSWORD: Optional[str] = None
+    ELASTIC_USERNAME: str
     CACHE_PORT: int
     CACHE_HOST: str
     CACHE_DB: int = 0

@@ -1,11 +1,12 @@
 import logging
 
-from elasticsearch import AsyncElasticsearch, NotFoundError, helpers
 from server.settings import settings
+
+from elasticsearch import AsyncElasticsearch, NotFoundError, helpers
 
 logger = logging.getLogger(__name__)
 
-elastic_client = AsyncElasticsearch([f"http://{settings.ELASTIC_HOST}:{settings.ELASTIC_PORT}"])
+elastic_client = AsyncElasticsearch([f"http://{settings.ELASTIC_HOST}:{settings.ELASTIC_PORT}"], basic_auth=(settings.ELASTIC_USERNAME, settings.ELASTIC_PASSWORD),)
 
 
 class ElasticsearchJobIndexer:

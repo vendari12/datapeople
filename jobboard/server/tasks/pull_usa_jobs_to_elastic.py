@@ -27,12 +27,13 @@ async def fetch_usa_jobs_historical_data_by_batch() -> AsyncGenerator[List[Dict[
     response = await client.fetch_paginated_historical_job_announcements(page, page_size)
     total_count = response["paging"]["metadata"]["totalCount"]
     total_pages = ceil(total_count / page_size)
-
+    logging.info("Fetching jobs data page 1")
     # Yield the first batch
     yield response["data"]
 
     # Fetch remaining pages and yield each batch
     for page in range(2, total_pages + 1):
+        logging.info(f"Batching remaining job data page: {page}")
         response = await client.fetch_paginated_historical_job_announcements(page, page_size)
         yield response["data"]
 
@@ -42,6 +43,7 @@ async def process_and_store_historical_jobs():
     """
     elastic_client = ElasticsearchJobIndexer(USA_JOBS_INDEX)
     # create index if it doesn't exist
+    logging.info(f"Creating elastic index: {USA_JOBS_INDEX}")
     await elastic_client.create_index_if_not_exists()
     async for job_batch in fetch_usa_jobs_historical_data_by_batch():
         # Process the batching and indexingg elasticsearch

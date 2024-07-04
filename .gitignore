@@ -108,3 +108,9 @@ dmypy.json
 # elasticsearch dump data
 elasticsearch/localdata
 elasticsearch/localdata1
+
+# celery beat file
+celerybeat-schedule
+
+# redis cache dump
+cache/*

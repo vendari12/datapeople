@@ -3,9 +3,11 @@ from datetime import datetime, timezone
 from http import HTTPMethod, HTTPStatus
 from typing import Any, Dict, Optional, Union
 
-from aiohttp import ClientResponse, ClientSession, ContentTypeError
-from server.settings import settings  # Import your settings module
-from server.utils.exceptions import (  # Import your custom exceptions
+import backoff
+from aiohttp import (ClientConnectionError, ClientError, ClientResponse,
+                     ClientSession, ContentTypeError)
+from server.settings import settings  
+from server.utils.exceptions import (  
     USAJobClientManagementError, USAManagementJsonError)
 
 # Base URL for the USA Jobs API
@@ -23,20 +25,24 @@ def parse_datetime(datetime_str):
         return datetime.strptime(datetime_str, "%Y-%m-%dT%H:%M:%S")
     except ValueError:
         pass
-    
+
     try:
-        # Try parsing as ISO 8601 with timezone 
-        return datetime.strptime(datetime_str, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+        # Try parsing as ISO 8601 with timezone
+        return datetime.strptime(datetime_str, "%Y-%m-%dT%H:%M:%SZ").replace(
+            tzinfo=timezone.utc
+        )
     except ValueError as e:
         raise ValueError(f"Unsupported datetime format: {datetime_str}") from e
 
-def normalize_datetime(datetime_obj:datetime):
+
+def normalize_datetime(datetime_obj: datetime):
     # Normalize datetime to UTC timezone if it has timezone info
     if datetime_obj.tzinfo is not None:
         return datetime_obj.astimezone(timezone.utc)
     else:
-        # Assume naive datetime is in UTC 
+        # Assume naive datetime is in UTC
         return datetime_obj.replace(tzinfo=timezone.utc)
+
 
 async def parse_response(response: ClientResponse) -> Union[Dict, str]:
     """
@@ -52,6 +58,7 @@ async def parse_response(response: ClientResponse) -> Union[Dict, str]:
         return await response.json()
     except ContentTypeError:
         return await response.text()
+
 
 class USAJobBoardClient:
     """
@@ -88,12 +95,16 @@ class USAJobBoardClient:
         """
         return f"{self._base_url}{path}"
 
-    async def _request(self, method: str, path: str, headers: Optional[Dict[str, str]] = None, **kwargs) -> Any:
+    @backoff.on_exception(
+        backoff.expo, (ClientError, ClientConnectionError), max_time=60, max_tries=3
+    )
+    async def _get(
+        self, path: str, headers: Optional[Dict[str, str]] = None, **kwargs
+    ) -> Any:
         """
         Make an HTTP request with the given method, path, and parameters.
 
         Arguments:
-            method: HTTP method (GET, POST, etc.).
             path: API endpoint path.
             headers: Optional additional headers.
             **kwargs: Additional parameters for aiohttp request.
@@ -108,21 +119,25 @@ class USAJobBoardClient:
         request_headers = {**self._default_headers, **(headers or {})}
 
         async with ClientSession() as session:
-            async with session.request(method, url, headers=request_headers, **kwargs) as response:
+            async with session.request(
+                HTTPMethod.GET, url, headers=request_headers, **kwargs
+            ) as response:
                 if response.status == HTTPStatus.OK:
                     return await parse_response(response)
 
                 error_details = await parse_response(response)
                 logger.warning(
-                    f"Request failed for {method} {url}. "
+                    f"Request failed for {HTTPMethod.GET} {url}. "
                     f"Status code: {response.status}, Error details: {error_details}"
                 )
                 raise USAJobClientManagementError(
                     response.status,
-                    f"Request to {url} failed with status code {response.status}. Details: {error_details}"
+                    f"Request to {url} failed with status code {response.status}. Details: {error_details}",
                 )
 
-    async def search_jobs_by_fields(self, fields: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    async def search_jobs_by_fields(
+        self, fields: Dict[str, Any]
+    ) -> Optional[Dict[str, Any]]:
         """
         Search for jobs using specified fields.
 
@@ -135,7 +150,7 @@ class USAJobBoardClient:
         Raises:
             USAJobClientManagementError: If the request fails.
         """
-        return await self._request(HTTPMethod.GET, "search", params=fields)
+        return await self._get("search", params=fields)
 
     async def fetch_paginated_historical_job_announcements(
         self, page: int, page_size: int = 1000, params: Optional[Dict[str, str]] = None
@@ -157,9 +172,9 @@ class USAJobBoardClient:
         params = params or {}
         params.update({"Pagesize": page_size, "PageNumber": page})
 
-        return await self._request(HTTPMethod.GET, "historicjoa", params=params)
+        return await self._get("historicjoa", params=params)
 
 
-def _parse_job_data_with_date(job:Dict):
+def _parse_job_data_with_date(job: Dict):
     for field, value in job.items():
         pass
