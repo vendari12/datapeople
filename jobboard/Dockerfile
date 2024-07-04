@@ -1,4 +1,4 @@
-FROM pypy:3.9-slim-buster
+FROM python:3.11-slim-buster
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends build-essential && \
@@ -13,12 +13,13 @@ WORKDIR /app
 ENV PYTHONIOENCODING=UTF-8
 
 COPY . /app/
+COPY ./Procfile /app/
 
 
 RUN python -m pip install --upgrade setuptools
 
 
-RUN pip install --no-cache -r ./server/requirements.txt --extra-index-url https://$PYPI_USER:$PYPI_PASS@$PYPI_URL --trusted-host $PYPI_URL
+RUN pip install --no-cache -r ./requirements.txt 
 
 # Create a new user and switch to that user
 RUN addgroup --system  datapeople  && \

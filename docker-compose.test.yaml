@@ -7,7 +7,10 @@ services:
       - "6379:6379"
     restart: unless-stopped
     volumes:
-      - dragonflydata:/data
+      - ./cache:/data
+    
+    networks:
+      - jobboard-network
   
 
   elasticsearch-test:
@@ -35,16 +38,17 @@ services:
       - "8000:8000"
     volumes:
       - ./jobboard:/app
+    networks:
+      - jobboard-network
       
     environment:
       # set environment variables
       - CACHE_PORT=${CACHE_PORT:-6379}
       - CACHE_HOST=${CACHE_HOST:-cache}
-      - CACHE_SSL=${CACHE_SSL:-False}
-      - ELASTIC_SSL=${ELASTIC_SSL:-False}
       - ADMIN_EMAIL=${ADMIN_EMAIL}
       - ELASTIC_PORT=${ELASTIC_PORT:-9200}
       - ELASTIC_HOST=${ELASTIC_HOST:-elasticsearch}
+      - JOB_API_KEY=${JOB_API_KEY}
     command: gunicorn -c ./server/gunicorn.conf.py manage:app
     depends_on:
       - elasticsearch
@@ -54,7 +58,7 @@ services:
     build:
       context: jobboard
     ports:
-      - "8000:8000"
+      - "8020:5555"
     volumes:
       - ./jobboard:/app
     command: ["honcho", "start"] 
@@ -65,14 +69,15 @@ services:
       - ELASTIC_HOST=${ELASTIC_HOST:-elasticsearch}
       - CACHE_PORT=${CACHE_PORT:-6379}
       - CACHE_HOST=${CACHE_HOST:-cache}
-      - CACHE_SSL=${CACHE_SSL:-False}
-      - ELASTIC_SSL=${ELASTIC_SSL:-False}
+      - JOB_API_KEY=${JOB_API_KEY}
     depends_on:
       - elasticsearch
       - cache
+    networks:
+      - jobboard-network
 
 
 networks:
   elastic:
     external:
-      name: general
+      name: jobboard-network

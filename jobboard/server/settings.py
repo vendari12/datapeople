@@ -1,20 +1,21 @@
 import os
-from pydantic_settings import BaseSettings
-from pydantic import HttpUrl, field_validator, EmailStr
 from typing import Optional
+
+from pydantic import EmailStr, HttpUrl, field_validator
+from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
     APP_NAME: str = "Jobboard"
-    API_VI_STR = "/api/jobboard/v1"
+    API_VI_STR: str = "/api/jobboard/v1"
     ELASTIC_PORT: int
     ELASTIC_HOST: str
     ELASTIC_PASSWORD: Optional[str] = None
     CACHE_PORT: int
     CACHE_HOST: str
     CACHE_DB: int = 0
-    CACHE_SSL: bool
-    ELASTIC_SSL: bool
+    CACHE_SSL: Optional[bool] =  False
+    ELASTIC_SSL: Optional[bool] = False
     PAGINATION_PAGE_SIZE: int = 20
     JOB_API_KEY: str
     ADMIN_EMAIL: EmailStr
@@ -30,5 +31,6 @@ class Settings(BaseSettings):
     def validate_cache_ssl(cls, field: bool):
         if field is True and not os.environ.get("CACHE_CERT_PATH"):
             raise ValueError("Redis certificate path is required in SSL mode")
+
 
 settings = Settings()

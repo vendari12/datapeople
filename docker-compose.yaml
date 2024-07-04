@@ -1,5 +1,3 @@
-version: "3"
-
 services:
   cache:
     hostname: cache
@@ -8,25 +6,97 @@ services:
       - "6379:6379"
     restart: unless-stopped
     volumes:
-      - dragonflydata:/data
-  
+      - ./cache:/data
+
+  setup:
+    build:
+      context: elasticsearch
+      dockerfile: Dockerfile
+    volumes:
+      - ./elasticsearch/localdata/certs:/usr/share/elasticsearch/config/certs
+    user: "0"
+    command: >
+      bash -c '
+        if [ x${ELASTIC_PASSWORD} == x ]; then
+          echo "Set the ELASTIC_PASSWORD environment variable in the .env file";
+          exit 1;
+        elif [ x${KIBANA_PASSWORD} == x ]; then
+          echo "Set the KIBANA_PASSWORD environment variable in the .env file";
+          exit 1;
+        fi;
+        if [ ! -f config/certs/ca.zip ]; then
+          echo "Creating CA";
+          bin/elasticsearch-certutil ca --silent --pem -out config/certs/ca.zip;
+          unzip config/certs/ca.zip -d config/certs;
+        fi;
+        if [ ! -f config/certs/certs.zip ]; then
+          echo "Creating certs";
+          echo -ne \
+          "instances:\n"\
+          "  - name: elasticsearch\n"\
+          "    dns:\n"\
+          "      - elasticsearch\n"\
+          "      - localhost\n"\
+          "    ip:\n"\
+          "      - 127.0.0.1\n"\
+          > config/certs/instances.yml;
+          bin/elasticsearch-certutil cert --silent --pem -out config/certs/certs.zip --in config/certs/instances.yml --ca-cert config/certs/ca/ca.crt --ca-key config/certs/ca/ca.key;
+          unzip config/certs/certs.zip -d config/certs;
+        fi;
+        echo "Setting file permissions"
+        chown -R root:root config/certs;
+        find . -type d -exec chmod 750 \{\} \;;
+        find . -type f -exec chmod 640 \{\} \;;
+        echo "Waiting for Elasticsearch availability";
+        until curl -s --cacert config/certs/ca/ca.crt https://elasticsearch:9200 | grep -q "missing authentication credentials"; do sleep 30; done;
+        echo "Setting kibana_system password";
+        until curl -s -X POST --cacert config/certs/ca/ca.crt -u "elastic:${ELASTIC_PASSWORD}" -H "Content-Type: application/json" https://elasticsearch:9200/_security/user/kibana_system/_password -d "{\"password\":\"${KIBANA_PASSWORD}\"}" | grep -q "^{}"; do sleep 10; done;
+        echo "All done!";
+      '
+    healthcheck:
+      test: ["CMD-SHELL", "[ -f config/certs/elasticsearch/elasticsearch.crt ]"]
+      interval: 1s
+      timeout: 5s
+      retries: 120
 
   elasticsearch:
-    container_name: elastic
-    image: elasticsearch
     build:
-      context: ./elasticsearch
-      dockerfile: ./Dockerfile
+      context: elasticsearch
+      dockerfile: Dockerfile
+    volumes:
+      - ./elasticsearch/localdata/certs:/usr/share/elasticsearch/config/certs
+      - ./elasticsearch/localdata:/usr/share/elasticsearch/data
     ports:
       - 9200:9200
-      - 9300:9300
     environment:
+      - node.name=elasticsearch
+      - cluster.name=${CLUSTER_NAME}
       - discovery.type=single-node
-    networks:
-      - elastic
-    volumes:
-      - ./elasticsearch/localdata/opt/elastic:/usr/share/elasticsearch/data
-
+      - ELASTIC_PASSWORD=${ELASTIC_PASSWORD}
+      - bootstrap.memory_lock=true
+      - xpack.security.enabled=true
+      - xpack.security.http.ssl.enabled=true
+      - xpack.security.http.ssl.key=certs/elasticsearch/elasticsearch.key
+      - xpack.security.http.ssl.certificate=certs/elasticsearch/elasticsearch.crt
+      - xpack.security.http.ssl.certificate_authorities=certs/ca/ca.crt
+      - xpack.security.transport.ssl.enabled=true
+      - xpack.security.transport.ssl.key=certs/elasticsearch/elasticsearch.key
+      - xpack.security.transport.ssl.certificate=certs/elasticsearch/elasticsearch.crt
+      - xpack.security.transport.ssl.certificate_authorities=certs/ca/ca.crt
+      - xpack.security.transport.ssl.verification_mode=certificate
+      - xpack.license.self_generated.type=${LICENSE}
+    mem_limit: 2147483648
+    cap_add: 
+      - SYS_RESOURCE  # Add this to give more capabilities
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "curl -s --cacert config/certs/ca/ca.crt https://localhost:9200 | grep -q 'missing authentication credentials'",
+        ]
+      interval: 10s
+      timeout: 10s
+      retries: 120
 
   jobboard:
     container_name: jobboard
@@ -36,47 +106,39 @@ services:
       - "8000:8000"
     volumes:
       - ./jobboard:/app
-      
     environment:
-      # set environment variables
       - ADMIN_EMAIL=${ADMIN_EMAIL}
       - ELASTIC_PORT=${ELASTIC_PORT:-9200}
       - CACHE_PORT=${CACHE_PORT:-6379}
       - CACHE_HOST=${CACHE_HOST:-cache}
-      - CACHE_SSL=${CACHE_SSL:-False}
-      - ELASTIC_SSL=${ELASTIC_SSL:-False}
       - ELASTIC_HOST=${ELASTIC_HOST:-elasticsearch}
-    command: gunicorn -c ./server/gunicorn.conf.py manage:app
+      - JOB_API_KEY=${JOB_API_KEY}
+    command: fastapi dev manage.py --host=0.0.0.0
     depends_on:
       - elasticsearch
-  
+
   worker:
     container_name: worker
     build:
       context: jobboard
     ports:
-      - "8000:8000"
+      - "8020:5555"
     volumes:
       - ./jobboard:/app
     command: ["honcho", "start"]
-      
     environment:
-      # set environment variables
       - CACHE_URL=redis://cache:6379/0
       - ADMIN_EMAIL=${ADMIN_EMAIL}
       - ELASTIC_PORT=${ELASTIC_PORT:-9200}
       - ELASTIC_HOST=${ELASTIC_HOST:-elasticsearch}
       - CACHE_PORT=${CACHE_PORT:-6379}
       - CACHE_HOST=${CACHE_HOST:-cache}
-      - CACHE_SSL=${CACHE_SSL:-False}
-      - ELASTIC_SSL=${ELASTIC_SSL:-False}
+      - JOB_API_KEY=${JOB_API_KEY}
     depends_on:
       - elasticsearch
       - cache
 
-
-
 networks:
   elastic:
     external:
-      name: general
+      name: jobboard-network

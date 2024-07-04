@@ -1,5 +1,5 @@
-from server.settings import settings
 from celery import Celery
+from server.settings import settings
 from server.utils.cache import build_redis_connection_args, get_redis_url
 
 # Redis config

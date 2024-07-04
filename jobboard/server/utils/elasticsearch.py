@@ -1,9 +1,11 @@
-from elasticsearch import AsyncElasticsearch, helpers, NotFoundError
 import logging
+
+from elasticsearch import AsyncElasticsearch, NotFoundError, helpers
+from server.settings import settings
 
 logger = logging.getLogger(__name__)
 
-elastic_client = AsyncElasticsearch()
+elastic_client = AsyncElasticsearch([f"http://{settings.ELASTIC_HOST}:{settings.ELASTIC_PORT}"])
 
 
 class ElasticsearchJobIndexer:

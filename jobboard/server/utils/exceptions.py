@@ -1,7 +1,8 @@
-from typing import Any, Dict, Optional
 from http import HTTPStatus
-from typing_extensions import Annotated, Doc
+from typing import Any, Dict, Optional
+
 from fastapi.exceptions import HTTPException
+from typing_extensions import Annotated, Doc
 
 
 class ObjectNotFound(HTTPException):

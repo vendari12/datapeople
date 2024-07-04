@@ -1,11 +1,12 @@
 import logging
-from typing import Dict, Optional, Union, Any
-from http import HTTPStatus, HTTPMethod
 from datetime import datetime, timezone
-from aiohttp import ClientResponse, ClientSession, ContentTypeError
+from http import HTTPMethod, HTTPStatus
+from typing import Any, Dict, Optional, Union
 
+from aiohttp import ClientResponse, ClientSession, ContentTypeError
 from server.settings import settings  # Import your settings module
-from server.utils.exceptions import USAJobClientManagementError, USAManagementJsonError  # Import your custom exceptions
+from server.utils.exceptions import (  # Import your custom exceptions
+    USAJobClientManagementError, USAManagementJsonError)
 
 # Base URL for the USA Jobs API
 _USA_JOBS_BASE_URL = "https://data.usajobs.gov/api/"
@@ -14,6 +15,7 @@ _USA_JOBS_BASE_URL = "https://data.usajobs.gov/api/"
 logger = logging.getLogger(__name__)
 
 from datetime import datetime, timezone
+
 
 def parse_datetime(datetime_str):
     try:

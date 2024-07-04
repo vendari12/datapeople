@@ -1,6 +1,7 @@
 import logging
 import os
 from typing import Optional
+
 from redis.asyncio import Redis as AIORedis
 from server.settings import settings
 

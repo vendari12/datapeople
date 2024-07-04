@@ -1,11 +1,12 @@
-from aiohttp import ClientSession
-from asyncio import get_event_loop, set_event_loop, get_running_loop, run
-from pydantic import HttpUrl
 import logging
-from typing import AsyncGenerator, List, Any, Dict
+from asyncio import get_event_loop, get_running_loop, run, set_event_loop
 from math import ceil
-from server.utils.celery import celery
+from typing import Any, AsyncGenerator, Dict, List
+
+from aiohttp import ClientSession
+from pydantic import HttpUrl
 from server.settings import settings
+from server.utils.celery import celery
 from server.utils.constants import USA_JOBS_INDEX
 from server.utils.elasticsearch import ElasticsearchJobIndexer
 from server.utils.usa_job_client import USAJobBoardClient

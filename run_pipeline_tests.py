@@ -1,8 +1,8 @@
 import argparse
-import subprocess
-import time
 import os
+import subprocess
 import sys
+import time
 
 """ 
 This script is used by the pipeline to determine which repository/service has changes that needs to be tested, 
